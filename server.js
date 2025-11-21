@@ -1,17 +1,17 @@
 const express = require("express");
 const multer = require("multer");
-const mysql = require("mysql2");
 const cors = require("cors");
 const path = require("path");
+const { Pool } = require("pg");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Make uploads folder public
+// make uploads folder public
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Multer storage config
+// Storage for videos
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, "uploads/");
@@ -23,32 +23,31 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// MySQL connection
-const db = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "kyc_db"
+// Postgres connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL
 });
 
-// API to upload video
-app.post("/upload", upload.single("file"), (req, res) => {
-    const name = req.body.name;
-    const requestId = req.body.requestId;
+// Upload API
+app.post("/upload", upload.single("file"), async (req, res) => {
+    const { name, requestId } = req.body;
     const videoPath = "/uploads/" + req.file.filename;
 
-    const sql = "INSERT INTO kyc_videos(customer_name, request_id, video_path) VALUES (?, ?, ?)";
+    try {
+        await pool.query(
+            "INSERT INTO kyc_videos (customer_name, request_id, video_path) VALUES ($1, $2, $3)",
+            [name, requestId, videoPath]
+        );
 
-    db.query(sql, [name, requestId, videoPath], (err) => {
-        if (err) {
-            console.log(err);
-            return res.status(500).send("Database error");
-        }
         res.send("Upload successful!");
-    });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Database error");
+    }
 });
 
-// Start server
-app.listen(3000, () => {
-    console.log("Backend running at http://localhost:3000");
+// Render port handling
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+    console.log("Server running at port " + port);
 });
