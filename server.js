@@ -25,7 +25,9 @@ const upload = multer({ storage });
 
 // Postgres connection
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL
+    connectionString: process.env.DATABASE_URL,
+    ssl:{rejectUnauthorized:false}
+    
 });
 
 // Upload API
@@ -51,3 +53,4 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
     console.log("Server running at port " + port);
 });
+
